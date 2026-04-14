@@ -2886,77 +2886,61 @@
         });
 
         /* ── Background Music ────────────────────────────
-           Audio starts MUTED (browsers allow muted autoplay).
-           On the VERY FIRST user interaction → unmute instantly.
-           Button only toggles mute / unmute — music never stops.
+           Muted autoplay → unmute on first interaction.
+           Uses boolean capture (true) for max compatibility.
         ─────────────────────────── */
         (function () {
-            var audio     = document.getElementById('bg-music');
-            var btn       = document.getElementById('music-btn');
-            var activated = false;
+            var audio = document.getElementById('bg-music');
+            var btn   = document.getElementById('music-btn');
+            var on    = false;
 
-            /* Smooth volume ramp-up over ~2 s */
-            function rampUp() {
-                audio.volume = 0;
-                var i = 0, steps = 40, target = 0.55;
-                var t = setInterval(function () {
-                    i++;
-                    audio.volume = Math.min(i * (target / steps), target);
-                    if (i >= steps) clearInterval(t);
-                }, 50);
+            var EVENTS = ['click','touchstart','touchend','mousedown','mousemove','scroll','wheel','keydown','pointerdown'];
+
+            function removeAll() {
+                for (var i = 0; i < EVENTS.length; i++) {
+                    document.removeEventListener(EVENTS[i], turnOn, true);
+                }
             }
 
-            /* Show EQ bars, update tooltip */
-            function showPlaying(on) {
-                btn.classList.toggle('playing', on);
-                btn.setAttribute('data-label', on ? 'Mute Music' : 'Unmute Music');
-                btn.setAttribute('aria-label',  on ? 'Mute music' : 'Unmute music');
-            }
-
-            /* Called once on the very first detected user interaction */
-            function activate() {
-                if (activated) return;
-                activated = true;
-                /* Remove all auto-activation listeners */
-                ALL_EVENTS.forEach(function (ev) {
-                    window.removeEventListener(ev, activate, true);
-                });
-                if (audio.paused) audio.play().catch(function () {});
+            function turnOn() {
+                if (on) return;
+                on = true;
+                removeAll();
+                /* Fresh play() call directly inside user gesture stack */
+                audio.pause();
                 audio.muted = false;
-                rampUp();
-                showPlaying(true);
+                audio.currentTime = audio.currentTime; /* force reload on iOS */
+                audio.volume = 0.5;
+                audio.play();
+                btn.classList.add('playing');
+                btn.setAttribute('data-label', 'Mute Music');
+                btn.setAttribute('aria-label', 'Mute music');
             }
 
-            /* Listen on WINDOW (catches everything), capture phase */
-            var ALL_EVENTS = ['mousedown','touchstart','touchend','click','scroll','wheel','keydown'];
-            ALL_EVENTS.forEach(function (ev) {
-                window.addEventListener(ev, activate, { once: true, capture: true, passive: true });
-            });
+            /* Attach on DOCUMENT with boolean true (capture) — max compat */
+            for (var i = 0; i < EVENTS.length; i++) {
+                document.addEventListener(EVENTS[i], turnOn, true);
+            }
 
-            /* Button: toggle mute / unmute */
+            /* Button: toggle mute/unmute */
             btn.addEventListener('click', function () {
-                if (!activated) {
-                    activate();
-                    return;
-                }
-                if (!audio.muted) {
-                    /* Mute — keep playing silently */
-                    audio.muted = true;
-                    audio.volume = 0;
-                    showPlaying(false);
-                } else {
-                    /* Unmute */
+                if (!on) { turnOn(); return; }
+                if (audio.muted) {
                     audio.muted = false;
-                    rampUp();
-                    showPlaying(true);
+                    audio.volume = 0.5;
+                    btn.classList.add('playing');
+                    btn.setAttribute('data-label', 'Mute Music');
+                } else {
+                    audio.muted = true;
+                    btn.classList.remove('playing');
+                    btn.setAttribute('data-label', 'Play Music');
                 }
             });
 
-            /* Kick off muted playback immediately */
-            audio.muted  = true;
+            /* Start muted playback immediately */
+            audio.muted = true;
             audio.volume = 0;
-            var p = audio.play();
-            if (p) p.catch(function () {});
+            try { audio.play(); } catch(e) {}
         })();
 
         /* ── Cursor glow ──────────────────────────────── */
