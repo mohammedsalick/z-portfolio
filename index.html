@@ -30,7 +30,13 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700;800&family=Bebas+Neue&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <!-- Font Awesome 6.5.1 — with SRI integrity for GitHub Pages -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LQ=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css'" />
 
     <style>
         /* ─── TOKENS ───────────────────────────────────────────── */
@@ -1533,8 +1539,8 @@
             display: flex;
             align-items: center;
             gap: 1.1rem;
-            background: linear-gradient(135deg, rgba(37, 211, 102, .08), rgba(37, 211, 102, .04));
-            border: 1px solid rgba(37, 211, 102, .2);
+            background: linear-gradient(135deg, rgba(200, 0, 10, .08), rgba(200, 0, 10, .04));
+            border: 1px solid rgba(200, 0, 10, .22);
             border-radius: var(--r-lg);
             padding: 1.5rem 1.6rem;
             margin-bottom: 1.5rem;
@@ -1545,9 +1551,9 @@
         }
 
         .wa-primary:hover {
-            border-color: rgba(37, 211, 102, .5);
+            border-color: var(--c-red);
             transform: translateY(-3px);
-            box-shadow: 0 16px 40px rgba(37, 211, 102, .1)
+            box-shadow: 0 16px 40px rgba(200, 0, 10, .14)
         }
 
         .wa-icon-wrap {
@@ -1555,12 +1561,12 @@
             height: 56px;
             min-width: 56px;
             border-radius: 50%;
-            background: rgba(37, 211, 102, .12);
+            background: rgba(200, 0, 10, .12);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.5rem;
-            color: #25D366;
+            color: var(--c-red);
         }
 
         .wa-info strong {
@@ -1581,7 +1587,7 @@
 
         .wa-info .wa-tap {
             font-size: .72rem;
-            color: rgba(37, 211, 102, .7);
+            color: rgba(200, 0, 10, .7);
             margin-top: .15rem
         }
 
@@ -1789,7 +1795,7 @@
             gap: .6rem;
             padding: 1rem 2rem;
             border-radius: 99px;
-            background: linear-gradient(135deg, #25D366, #128C7E);
+            background: linear-gradient(135deg, var(--c-red2), var(--c-red));
             color: #fff;
             border: none;
             font-family: var(--ff-sans);
@@ -1799,14 +1805,14 @@
             text-transform: uppercase;
             cursor: pointer;
             transition: transform .3s, box-shadow .3s;
-            box-shadow: 0 8px 28px rgba(37, 211, 102, .25);
+            box-shadow: 0 8px 28px rgba(200, 0, 10, .3);
             width: 100%;
             margin-top: .4rem;
         }
 
         .form-submit:hover {
             transform: translateY(-3px);
-            box-shadow: 0 14px 36px rgba(37, 211, 102, .35)
+            box-shadow: 0 14px 36px rgba(200, 0, 10, .45)
         }
 
         .form-note {
@@ -1817,7 +1823,7 @@
         }
 
         .form-note i {
-            color: #25D366;
+            color: var(--c-red);
             margin-right: .3rem
         }
 
@@ -2881,50 +2887,70 @@
 
         /* ── Background Music ──────────────────────────── */
         (function initMusic() {
-            const audio  = document.getElementById('bg-music');
-            const btn    = document.getElementById('music-btn');
-            let   playing = false;
+            var audio   = document.getElementById('bg-music');
+            var btn     = document.getElementById('music-btn');
+            var playing = false;
+            var ramping = false;
+
+            /* Always set volume to 0 before playing, then ramp up */
+            function rampVolume() {
+                if (ramping) return;
+                ramping = true;
+                audio.volume = 0;
+                var target = 0.5;
+                var step   = target / 30;          // 30 steps
+                var t = setInterval(function () {
+                    audio.volume = Math.min(audio.volume + step, target);
+                    if (audio.volume >= target) {
+                        clearInterval(t);
+                        ramping = false;
+                    }
+                }, 60);                            // ~1.8s total
+            }
 
             function setPlaying(state) {
                 playing = state;
                 btn.classList.toggle('playing', playing);
-                btn.setAttribute('aria-label', playing ? 'Pause music' : 'Play music');
-                btn.setAttribute('data-label', playing ? 'Pause Music' : 'Play Music');
-                if (playing) { audio.play().catch(() => {}); }
-                else { audio.pause(); }
+                btn.setAttribute('aria-label',  playing ? 'Pause music' : 'Play music');
+                btn.setAttribute('data-label',  playing ? 'Pause Music' : 'Play Music');
+                if (playing) {
+                    /* play() returns a Promise — handle rejection properly */
+                    var p = audio.play();
+                    if (p !== undefined) {
+                        p.then(function () {
+                            rampVolume();
+                        }).catch(function () {
+                            /* Browser blocked — reset UI */
+                            playing = false;
+                            btn.classList.remove('playing');
+                            btn.setAttribute('aria-label', 'Play music');
+                            btn.setAttribute('data-label', 'Play Music');
+                        });
+                    } else {
+                        rampVolume();
+                    }
+                } else {
+                    /* Fade out before pause */
+                    var fadeT = setInterval(function () {
+                        if (audio.volume > 0.04) {
+                            audio.volume = Math.max(audio.volume - 0.04, 0);
+                        } else {
+                            audio.volume = 0;
+                            audio.pause();
+                            clearInterval(fadeT);
+                        }
+                    }, 40);
+                }
             }
 
+            /* Strict click-only trigger — reliable on all browsers */
             btn.addEventListener('click', function () {
                 setPlaying(!playing);
             });
 
-            // Auto-start on first user interaction anywhere on the page
-            let autoStarted = false;
-            function tryAutoPlay() {
-                if (!autoStarted) {
-                    autoStarted = true;
-                    document.removeEventListener('click',      tryAutoPlay, true);
-                    document.removeEventListener('scroll',     tryAutoPlay, true);
-                    document.removeEventListener('touchstart', tryAutoPlay, true);
-                    // small delay so the first interaction doesn't feel jarring
-                    setTimeout(function() { setPlaying(true); }, 600);
-                }
-            }
-            document.addEventListener('click',      tryAutoPlay, {once:true, capture:true});
-            document.addEventListener('scroll',     tryAutoPlay, {once:true, passive:true});
-            document.addEventListener('touchstart', tryAutoPlay, {once:true, passive:true});
-
-            // Volume ramp-in for smooth start
+            /* Ensure audio is NOT muted and volume starts at 0 */
+            audio.muted  = false;
             audio.volume = 0;
-            audio.addEventListener('play', function ramp() {
-                let v = 0;
-                const t = setInterval(function() {
-                    v = Math.min(v + 0.025, 0.45);
-                    audio.volume = v;
-                    if (v >= 0.45) clearInterval(t);
-                }, 90);
-                audio.removeEventListener('play', ramp);
-            });
         })();
 
         /* ── Cursor glow ──────────────────────────────── */
