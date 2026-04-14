@@ -2245,6 +2245,54 @@
             transition: opacity .25s;
         }
         #music-btn:hover::after { opacity: 1; }
+
+        /* Tap-to-play prompt overlay */
+        #tap-prompt {
+            position: fixed;
+            inset: 0;
+            z-index: 99998;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        #tap-prompt.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #tap-prompt .tap-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid var(--c-red);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--c-light);
+            animation: tapPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes tapPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(200, 0, 10, 0.4); }
+            50% { transform: scale(1.08); box-shadow: 0 0 0 15px rgba(200, 0, 10, 0); }
+        }
+
+        #tap-prompt .tap-text {
+            font-size: 0.9rem;
+            color: rgba(248, 246, 242, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -2868,7 +2916,15 @@
     <button id="btt" aria-label="Back to top"><i class="fa-solid fa-chevron-up"></i></button>
 
     <!-- ─── BACKGROUND MUSIC ────────────────────────────────────── -->
-    <audio id="bg-music" src="song.mp3" loop autoplay muted playsinline preload="auto"></audio>
+    <audio id="bg-music" loop preload="auto">
+        <source src="song.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Tap-to-Play Prompt -->
+    <div id="tap-prompt" role="button" aria-label="Tap to enable background music">
+        <div class="tap-icon">&#9654;</div>
+        <div class="tap-text">Tap anywhere to enter</div>
+    </div>
     <button id="music-btn" aria-label="Play background music" data-label="Play Music">
         <i class="fa-solid fa-music music-icon-note"></i>
         <div class="music-eq" aria-hidden="true">
@@ -2878,70 +2934,85 @@
 
     <!-- ─── JS ────────────────────────────────────────────────── -->
     <script>
-        /* ── Loader ───────────────────────────────────── */
-        window.addEventListener('load', function () {
-            setTimeout(function () {
-                document.getElementById('loader').classList.add('done');
+        /* ── Loader & Audio Initialization ────────────────── */
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const loader = document.getElementById('loader');
+                if (loader) {
+                    loader.classList.add('done');
+                }
+                // Try playing audio after loader finishes
+                initAudio();
             }, 1950);
         });
 
-        /* ── Background Music ────────────────────────────
-           Muted autoplay → unmute on first interaction.
-           Uses boolean capture (true) for max compatibility.
-        ─────────────────────────── */
-        (function () {
-            var audio = document.getElementById('bg-music');
-            var btn   = document.getElementById('music-btn');
-            var on    = false;
+        function initAudio() {
+            const bgMusic = document.getElementById('bg-music');
+            const musicToggle = document.getElementById('music-btn');
+            const tapPrompt = document.getElementById('tap-prompt');
+            if (!bgMusic) return;
 
-            var EVENTS = ['click','touchstart','touchend','mousedown','mousemove','scroll','wheel','keydown','pointerdown'];
+            bgMusic.volume = 0.5;
+            
+            function startPlayback() {
+                bgMusic.play().then(() => {
+                    musicToggle.classList.add('playing');
+                    hideTapPrompt();
+                    removeAllInteractionListeners();
+                }).catch(() => { });
+            }
 
-            function removeAll() {
-                for (var i = 0; i < EVENTS.length; i++) {
-                    document.removeEventListener(EVENTS[i], turnOn, true);
+            function hideTapPrompt() {
+                if (tapPrompt) {
+                    tapPrompt.classList.remove('show');
+                    setTimeout(() => { tapPrompt.style.display = 'none'; }, 500);
                 }
             }
 
-            function turnOn() {
-                if (on) return;
-                on = true;
-                removeAll();
-                /* Fresh play() call directly inside user gesture stack */
-                audio.pause();
-                audio.muted = false;
-                audio.currentTime = audio.currentTime; /* force reload on iOS */
-                audio.volume = 0.5;
-                audio.play();
-                btn.classList.add('playing');
-                btn.setAttribute('data-label', 'Mute Music');
-                btn.setAttribute('aria-label', 'Mute music');
+            function onInteraction() {
+                startPlayback();
             }
 
-            /* Attach on DOCUMENT with boolean true (capture) — max compat */
-            for (var i = 0; i < EVENTS.length; i++) {
-                document.addEventListener(EVENTS[i], turnOn, true);
+            function removeAllInteractionListeners() {
+                ['click', 'touchstart', 'keydown', 'scroll', 'mousemove'].forEach(evt => {
+                    document.removeEventListener(evt, onInteraction, { capture: true });
+                });
             }
 
-            /* Button: toggle mute/unmute */
-            btn.addEventListener('click', function () {
-                if (!on) { turnOn(); return; }
-                if (audio.muted) {
-                    audio.muted = false;
-                    audio.volume = 0.5;
-                    btn.classList.add('playing');
-                    btn.setAttribute('data-label', 'Mute Music');
-                } else {
-                    audio.muted = true;
-                    btn.classList.remove('playing');
-                    btn.setAttribute('data-label', 'Play Music');
-                }
+            // Try autoplay immediately
+            bgMusic.play().then(() => {
+                musicToggle.classList.add('playing');
+            }).catch(() => {
+                // Autoplay was blocked — show tap prompt and listen for ANY interaction
+                if (tapPrompt) tapPrompt.classList.add('show');
+                ['click', 'touchstart', 'keydown', 'scroll', 'mousemove'].forEach(evt => {
+                    document.addEventListener(evt, onInteraction, { capture: true, once: true, passive: true });
+                });
             });
 
-            /* Start muted playback immediately */
-            audio.muted = true;
-            audio.volume = 0;
-            try { audio.play(); } catch(e) {}
-        })();
+            // Tap prompt direct click
+            if (tapPrompt) {
+                tapPrompt.addEventListener('click', () => {
+                    startPlayback();
+                });
+                tapPrompt.addEventListener('touchstart', () => {
+                    startPlayback();
+                }, { passive: true });
+            }
+
+            // Music toggle button
+            musicToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (bgMusic.paused) {
+                    bgMusic.play().then(() => {
+                        musicToggle.classList.add('playing');
+                    });
+                } else {
+                    bgMusic.pause();
+                    musicToggle.classList.remove('playing');
+                }
+            });
+        }
 
         /* ── Cursor glow ──────────────────────────────── */
         const glow = document.getElementById('cursor-glow');
