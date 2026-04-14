@@ -2103,10 +2103,153 @@
                 font-size: 1.6rem
             }
         }
+
+        /* ─── LOADER ────────────────────────────────────────────── */
+        #loader {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: #080808;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2.2rem;
+            transition: opacity .65s cubic-bezier(.16,1,.3,1), visibility .65s;
+        }
+        #loader.done {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .loader-logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.6rem,8vw,5rem);
+            letter-spacing: .18em;
+            color: #F8F6F2;
+            animation: loaderPulse 1.6s ease-in-out infinite;
+        }
+        .loader-logo span { color: #C8000A; }
+        .loader-bar {
+            width: 200px;
+            height: 2px;
+            background: rgba(255,255,255,.07);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .loader-fill {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #8B0000, #C8000A, #ff3344);
+            border-radius: 99px;
+            animation: loaderFill 1.85s cubic-bezier(.16,1,.3,1) forwards;
+        }
+        .loader-label {
+            font-size: .6rem;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            color: rgba(248,246,242,.3);
+            margin-top: -.8rem;
+        }
+        @keyframes loaderFill { from{width:0} to{width:100%} }
+        @keyframes loaderPulse { 0%,100%{opacity:.65} 50%{opacity:1} }
+
+        /* ─── MUSIC PLAYER ──────────────────────────────────────── */
+        #music-btn {
+            position: fixed;
+            bottom: 28px;
+            left: 28px;
+            z-index: 700;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: rgba(12,12,14,.92);
+            border: 1.5px solid rgba(200,0,10,.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 8px 28px rgba(0,0,0,.5), 0 0 0 0 rgba(200,0,10,.3);
+            transition: border-color .35s, transform .35s, box-shadow .35s;
+        }
+        #music-btn:hover {
+            border-color: rgba(200,0,10,.7);
+            transform: translateY(-3px) scale(1.06);
+            box-shadow: 0 12px 36px rgba(0,0,0,.6), 0 0 0 6px rgba(200,0,10,.08);
+        }
+        #music-btn.playing {
+            border-color: rgba(200,0,10,.6);
+            animation: musicPulse 2.2s ease-in-out infinite;
+        }
+        @keyframes musicPulse {
+            0%,100% { box-shadow: 0 8px 28px rgba(0,0,0,.5), 0 0 0 0 rgba(200,0,10,.3); }
+            50%      { box-shadow: 0 8px 28px rgba(0,0,0,.5), 0 0 0 10px rgba(200,0,10,0); }
+        }
+        .music-icon-note {
+            color: rgba(248,246,242,.8);
+            font-size: 1.15rem;
+            transition: opacity .3s;
+        }
+        #music-btn.playing .music-icon-note { display: none; }
+        /* Equalizer bars */
+        .music-eq {
+            display: none;
+            align-items: flex-end;
+            gap: 3px;
+            height: 18px;
+        }
+        #music-btn.playing .music-eq { display: flex; }
+        .music-eq span {
+            display: block;
+            width: 3px;
+            border-radius: 2px;
+            background: var(--c-red);
+            animation: eqBar 1s ease-in-out infinite;
+        }
+        .music-eq span:nth-child(1){ height: 10px; animation-delay: 0s; }
+        .music-eq span:nth-child(2){ height: 18px; animation-delay: .2s; }
+        .music-eq span:nth-child(3){ height: 8px;  animation-delay: .4s; }
+        .music-eq span:nth-child(4){ height: 14px; animation-delay: .1s; }
+        @keyframes eqBar {
+            0%,100% { transform: scaleY(.45); }
+            50%      { transform: scaleY(1); }
+        }
+        /* Tooltip label */
+        #music-btn::after {
+            content: attr(data-label);
+            position: absolute;
+            left: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(12,12,14,.92);
+            border: 1px solid rgba(200,0,10,.2);
+            border-radius: 8px;
+            padding: .3rem .75rem;
+            font-family: var(--ff-sans);
+            font-size: .62rem;
+            font-weight: 600;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: rgba(248,246,242,.7);
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s;
+        }
+        #music-btn:hover::after { opacity: 1; }
     </style>
 </head>
 
 <body>
+
+    <!-- ─── LOADER ─────────────────────────────────────────── -->
+    <div id="loader" aria-hidden="true">
+        <div class="loader-logo"><span>Z</span>UBAIR AHMED</div>
+        <div class="loader-bar"><div class="loader-fill"></div></div>
+        <span class="loader-label">DMK Chairman · Pernambut, Tamil Nadu</span>
+    </div>
 
     <!-- ─── CURSOR GLOW ─────────────────────────────────────── -->
     <div id="cursor-glow" aria-hidden="true"></div>
@@ -2718,8 +2861,72 @@
     <!-- Back to top -->
     <button id="btt" aria-label="Back to top"><i class="fa-solid fa-chevron-up"></i></button>
 
+    <!-- ─── BACKGROUND MUSIC ────────────────────────────────────── -->
+    <audio id="bg-music" src="song.mp3" loop preload="auto"></audio>
+    <button id="music-btn" aria-label="Play background music" data-label="Play Music">
+        <i class="fa-solid fa-music music-icon-note"></i>
+        <div class="music-eq" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+        </div>
+    </button>
+
     <!-- ─── JS ────────────────────────────────────────────────── -->
     <script>
+        /* ── Loader ───────────────────────────────────── */
+        window.addEventListener('load', function () {
+            setTimeout(function () {
+                document.getElementById('loader').classList.add('done');
+            }, 1950);
+        });
+
+        /* ── Background Music ──────────────────────────── */
+        (function initMusic() {
+            const audio  = document.getElementById('bg-music');
+            const btn    = document.getElementById('music-btn');
+            let   playing = false;
+
+            function setPlaying(state) {
+                playing = state;
+                btn.classList.toggle('playing', playing);
+                btn.setAttribute('aria-label', playing ? 'Pause music' : 'Play music');
+                btn.setAttribute('data-label', playing ? 'Pause Music' : 'Play Music');
+                if (playing) { audio.play().catch(() => {}); }
+                else { audio.pause(); }
+            }
+
+            btn.addEventListener('click', function () {
+                setPlaying(!playing);
+            });
+
+            // Auto-start on first user interaction anywhere on the page
+            let autoStarted = false;
+            function tryAutoPlay() {
+                if (!autoStarted) {
+                    autoStarted = true;
+                    document.removeEventListener('click',      tryAutoPlay, true);
+                    document.removeEventListener('scroll',     tryAutoPlay, true);
+                    document.removeEventListener('touchstart', tryAutoPlay, true);
+                    // small delay so the first interaction doesn't feel jarring
+                    setTimeout(function() { setPlaying(true); }, 600);
+                }
+            }
+            document.addEventListener('click',      tryAutoPlay, {once:true, capture:true});
+            document.addEventListener('scroll',     tryAutoPlay, {once:true, passive:true});
+            document.addEventListener('touchstart', tryAutoPlay, {once:true, passive:true});
+
+            // Volume ramp-in for smooth start
+            audio.volume = 0;
+            audio.addEventListener('play', function ramp() {
+                let v = 0;
+                const t = setInterval(function() {
+                    v = Math.min(v + 0.025, 0.45);
+                    audio.volume = v;
+                    if (v >= 0.45) clearInterval(t);
+                }, 90);
+                audio.removeEventListener('play', ramp);
+            });
+        })();
+
         /* ── Cursor glow ──────────────────────────────── */
         const glow = document.getElementById('cursor-glow');
         window.addEventListener('mousemove', e => {
