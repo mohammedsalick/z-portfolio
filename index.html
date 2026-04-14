@@ -2868,7 +2868,7 @@
     <button id="btt" aria-label="Back to top"><i class="fa-solid fa-chevron-up"></i></button>
 
     <!-- ─── BACKGROUND MUSIC ────────────────────────────────────── -->
-    <audio id="bg-music" src="song.mp3" loop autoplay muted preload="auto"></audio>
+    <audio id="bg-music" src="song.mp3" loop autoplay muted playsinline preload="auto"></audio>
     <button id="music-btn" aria-label="Play background music" data-label="Play Music">
         <i class="fa-solid fa-music music-icon-note"></i>
         <div class="music-eq" aria-hidden="true">
@@ -2886,90 +2886,77 @@
         });
 
         /* ── Background Music ────────────────────────────
-           Strategy: muted autoplay (allowed everywhere) →
-           unmute on first user gesture (click/touch/scroll/key)
-           Button toggles mute / unmute while audio keeps playing.
+           Audio starts MUTED (browsers allow muted autoplay).
+           On the VERY FIRST user interaction → unmute instantly.
+           Button only toggles mute / unmute — music never stops.
         ─────────────────────────── */
-        (function initMusic() {
-            var audio   = document.getElementById('bg-music');
-            var btn     = document.getElementById('music-btn');
-            var unmuted = false;   // tracks whether user has heard sound yet
+        (function () {
+            var audio     = document.getElementById('bg-music');
+            var btn       = document.getElementById('music-btn');
+            var activated = false;
 
-            /* ---- Volume ramp ---------------------------------------- */
+            /* Smooth volume ramp-up over ~2 s */
             function rampUp() {
                 audio.volume = 0;
-                var target = 0.55;
-                var steps  = 40;
-                var step   = target / steps;
-                var i = 0;
+                var i = 0, steps = 40, target = 0.55;
                 var t = setInterval(function () {
                     i++;
-                    audio.volume = Math.min(i * step, target);
+                    audio.volume = Math.min(i * (target / steps), target);
                     if (i >= steps) clearInterval(t);
-                }, 50);   // ~2 s total ramp
+                }, 50);
             }
 
-            function rampDown(cb) {
-                var steps = 20;
-                var i = 0;
-                var start = audio.volume;
-                var t = setInterval(function () {
-                    i++;
-                    audio.volume = Math.max(start - (start / steps) * i, 0);
-                    if (i >= steps) { clearInterval(t); if (cb) cb(); }
-                }, 35);
+            /* Show EQ bars, update tooltip */
+            function showPlaying(on) {
+                btn.classList.toggle('playing', on);
+                btn.setAttribute('data-label', on ? 'Mute Music' : 'Unmute Music');
+                btn.setAttribute('aria-label',  on ? 'Mute music' : 'Unmute music');
             }
 
-            /* ---- UI sync -------------------------------------------- */
-            function setUI(isPlaying) {
-                btn.classList.toggle('playing', isPlaying);
-                btn.setAttribute('aria-label', isPlaying ? 'Mute music'  : 'Unmute music');
-                btn.setAttribute('data-label', isPlaying ? 'Mute Music'  : 'Unmute Music');
-            }
-
-            /* ---- First unmute on any interaction -------------------- */
-            function firstUnmute() {
-                if (unmuted) return;
-                unmuted = true;
-                /* Remove all gesture listeners */
-                ['click','touchstart','scroll','keydown'].forEach(function (ev) {
-                    document.removeEventListener(ev, firstUnmute, true);
+            /* Called once on the very first detected user interaction */
+            function activate() {
+                if (activated) return;
+                activated = true;
+                /* Remove all auto-activation listeners */
+                ALL_EVENTS.forEach(function (ev) {
+                    window.removeEventListener(ev, activate, true);
                 });
+                if (audio.paused) audio.play().catch(function () {});
                 audio.muted = false;
                 rampUp();
-                setUI(true);
+                showPlaying(true);
             }
 
-            /* Listen on capture phase so we catch ANY event first */
-            ['click','touchstart','scroll','keydown'].forEach(function (ev) {
-                document.addEventListener(ev, firstUnmute, { once: true, capture: true, passive: true });
+            /* Listen on WINDOW (catches everything), capture phase */
+            var ALL_EVENTS = ['mousedown','touchstart','touchend','click','scroll','wheel','keydown'];
+            ALL_EVENTS.forEach(function (ev) {
+                window.addEventListener(ev, activate, { once: true, capture: true, passive: true });
             });
 
-            /* ---- Button: toggle mute / unmute ----------------------- */
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation(); /* don't double-fire firstUnmute */
-                if (!unmuted) {
-                    /* First ever click → unmute + start */
-                    firstUnmute();
+            /* Button: toggle mute / unmute */
+            btn.addEventListener('click', function () {
+                if (!activated) {
+                    activate();
                     return;
                 }
                 if (!audio.muted) {
-                    /* Currently audible → mute (keep playing silently) */
-                    rampDown(function () { audio.muted = true; });
-                    setUI(false);
+                    /* Mute — keep playing silently */
+                    audio.muted = true;
+                    audio.volume = 0;
+                    showPlaying(false);
                 } else {
-                    /* Currently muted → unmute */
+                    /* Unmute */
                     audio.muted = false;
                     rampUp();
-                    setUI(true);
+                    showPlaying(true);
                 }
-            }, true); /* capture phase so stopPropagation works */
+            });
 
-            /* ---- Ensure audio starts playing (muted) immediately ---- */
-            audio.muted = true;
+            /* Kick off muted playback immediately */
+            audio.muted  = true;
             audio.volume = 0;
             var p = audio.play();
-            if (p) p.catch(function () { /* fine — muted play rarely fails */ });
+            if (p) p.catch(function () {});
         })();
 
         /* ── Cursor glow ──────────────────────────────── */
